@@ -59,7 +59,7 @@ class MarkerProcessor:
             print("✅ Marker AI loaded")
 
         except ImportError as e:
-            print(f"⚠️ Marker AI not available: {e}")
+            print(f"[WARNING] Marker AI not available: {e}")
             self.available = False
         except Exception as e:
             print(f"❌ Marker AI error: {e}")
@@ -94,13 +94,13 @@ class MarkItDownProcessor:
             
             self._converter = MarkItDown()
             self.available = True
-            print("✅ MarkItDown loaded")
+            print("[OK] MarkItDown loaded")
 
         except ImportError as e:
-            print(f"⚠️ MarkItDown not available: {e}")
+            print(f"[WARNING] MarkItDown not available: {e}")
             self.available = False
         except Exception as e:
-            print(f"❌ MarkItDown error: {e}")
+            print(f"[ERROR] MarkItDown error: {e}")
             self.available = False
 
     def extract_full_text(self, pdf_path: str) -> Optional[str]:
@@ -133,7 +133,7 @@ class DoclingProcessor:
             from docling.datamodel.base_models import InputFormat
             from docling.document_converter import PdfFormatOption
             
-            print("⏳ Loading Docling...")
+            print(" Loading Docling models...")
             
             pipeline_options = PdfPipelineOptions()
             pipeline_options.do_ocr = True
@@ -146,9 +146,9 @@ class DoclingProcessor:
                         pipeline_options.accelerator_options = {"device": "cuda"}
                         print(f"🎯 Using GPU for Docling ({torch.cuda.get_device_name()})")
                     else:
-                        print("⚠️ GPU requested but CUDA not available, using CPU")
+                        print("[WARNING] GPU requested but CUDA not available, using CPU")
                 except ImportError:
-                    print("⚠️ PyTorch not available for GPU check, using CPU")
+                    print("[WARNING] PyTorch not available for GPU check, using CPU")
             
             self._converter = DocumentConverter(
                 format_options={
@@ -156,14 +156,14 @@ class DoclingProcessor:
                 }
             )
             self.available = True
-            print("✅ Docling loaded")
+            print("[OK] Docling loaded")
 
         except ImportError as e:
-            print(f"⚠️ Docling not available: {e}")
+            print(f"[WARNING] Docling not available: {e}")
             print("   Install with: pip install docling")
             self.available = False
         except Exception as e:
-            print(f"❌ Docling error: {e}")
+            print(f"[ERROR] Docling error: {e}")
             self.available = False
 
     def extract_full_text(self, pdf_path: str) -> Optional[str]:
@@ -175,7 +175,7 @@ class DoclingProcessor:
             result = self._converter.convert(pdf_path)
             return result.document.export_to_markdown()
         except Exception as e:
-            print(f"Docling extraction error: {e}")
+            print(f"[ERROR] Docling extraction error: {e}")
             return None
 
     def extract_structured(self, pdf_path: str) -> Optional[Dict]:
@@ -194,7 +194,7 @@ class DoclingProcessor:
                 "figures": [fig.export() for fig in doc.figures] if hasattr(doc, 'figures') else [],
             }
         except Exception as e:
-            print(f"Docling structured extraction error: {e}")
+            print(f"[ERROR] Docling structured extraction error: {e}")
             return None
 
 
