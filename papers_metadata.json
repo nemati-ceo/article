@@ -1,0 +1,58 @@
+{
+  "8d2f27af-d657-4d40-93c7-59b114a219a5": {
+    "uuid": "8d2f27af-d657-4d40-93c7-59b114a219a5",
+    "title": "Benchmark Success, Clinical Failure: When Reinforcement Learning Optimizes for Benchmarks, Not Patients",
+    "authors": [
+      "Armin Berger",
+      "Manuela Bergau",
+      "Helen Schneider",
+      "Saad Ahmad",
+      "Tom Anglim Lagones",
+      "Gianluca Brugnara",
+      "Martha Foltyn-Dumitru",
+      "Kai Schlamp",
+      "Philipp Vollmuth",
+      "Rafet Sifa"
+    ],
+    "year": 2025,
+    "source": "arXiv",
+    "arxiv_id": "2512.23090v2",
+    "doi": "N/A",
+    "url": "http://arxiv.org/abs/2512.23090v2",
+    "pdf_path": "papers_pdf\\2512.23090v2_Benchmark_Success_Clinical_Failure_When_Reinforcem.pdf",
+    "markdown_path": "papers_markdown\\8d2f27af_Benchmark_Success_Clinical_Failure_When_Reinforcem.md",
+    "citation": "Armin Berger et al. (2025). Benchmark Success, Clinical Failure: When Reinforcement Learning Optimizes for Benchmarks, Not Patients. arXiv preprint arXiv:2512.23090v2.",
+    "categories": [
+      "cs.AI",
+      "cs.LG"
+    ],
+    "abstract": "Recent Reinforcement Learning (RL) advances for Large Language Models (LLMs) have improved reasoning tasks, yet their resource-constrained application to medical imaging remains underexplored. We introduce ChexReason, a vision-language model trained via R1-style methodology (SFT followed by GRPO) using only 2,000 SFT samples, 1,000 RL samples, and a single A100 GPU. Evaluations on CheXpert and NIH benchmarks reveal a fundamental tension: GRPO recovers in-distribution performance (23% improvement on CheXpert, macro-F1 = 0.346) but degrades cross-dataset transferability (19% drop on NIH). This mirrors high-resource models like NV-Reason-CXR-3B, suggesting the issue stems from the RL paradigm rather than scale. We identify a generalization paradox where the SFT checkpoint uniquely improves on NIH before optimization, indicating teacher-guided reasoning captures more institution-agnostic features. Furthermore, cross-model comparisons show structured reasoning scaffolds benefit general-purpose VLMs but offer minimal gain for medically pre-trained models. Consequently, curated supervised fine-tuning may outperform aggressive RL for clinical deployment requiring robustness across diverse populations.",
+    "added_date": "2026-01-05T18:36:10.613567"
+  },
+  "e2b2a0f7-26ab-4625-9a93-931eca5fe1b5": {
+    "uuid": "e2b2a0f7-26ab-4625-9a93-931eca5fe1b5",
+    "title": "Brain network science modelling of sparse neural networks enables Transformers and LLMs to perform as fully connected",
+    "authors": [
+      "Yingtao Zhang",
+      "Diego Cerretti",
+      "Jialin Zhao",
+      "Wenjing Wu",
+      "Ziheng Liao",
+      "Umberto Michieli",
+      "Carlo Vittorio Cannistraci"
+    ],
+    "year": 2025,
+    "source": "arXiv",
+    "arxiv_id": "2501.19107v3",
+    "doi": "N/A",
+    "url": "http://arxiv.org/abs/2501.19107v3",
+    "pdf_path": "papers_pdf\\2501.19107v3_Brain_network_science_modelling_of_sparse_neural_n.pdf",
+    "markdown_path": "N/A",
+    "citation": "Yingtao Zhang et al. (2025). Brain network science modelling of sparse neural networks enables Transformers and LLMs to perform as fully connected. arXiv preprint arXiv:2501.19107v3.",
+    "categories": [
+      "cs.LG"
+    ],
+    "abstract": "Dynamic sparse training (DST) can reduce the computational demands in ANNs, but faces difficulties in keeping peak performance at high sparsity levels. The Cannistraci-Hebb training (CHT) is a brain-inspired method for growing connectivity in DST. CHT leverages a gradient-free, topology-driven link regrowth, which has shown ultra-sparse (less than 1% connectivity) advantage across various tasks compared to fully connected networks. Yet, CHT suffers two main drawbacks: (i) its time complexity is $O(Nd^3)$ - N node network size, d node degree - restricting it to ultra-sparse regimes. (ii) it selects top link prediction scores, which is inappropriate for the early training epochs, when the network presents unreliable connections. Here, we design the first brain-inspired network model - termed bipartite receptive field (BRF) - to initialize the connectivity of sparse artificial neural networks. We further introduce a GPU-friendly matrix-based approximation of CH link prediction, reducing complexity to $O(N^3)$. We introduce the Cannistraci-Hebb training soft rule (CHTs), which adopts a flexible strategy for sampling connections in both link removal and regrowth, balancing the exploration and exploitation of network topology. Additionally, we integrate CHTs with a sigmoid gradual density decay (CHTss). Empirical results show that BRF offers performance advantages over previous network science models. Using 1% of connections, CHTs outperforms fully connected networks in MLP architectures on image classification tasks, compressing some networks to less than 30% of the nodes. Using 5% of the connections, CHTss outperforms fully connected networks in two Transformer-based machine translation tasks. Finally, at 30% connectivity, both CHTs and CHTss outperform other DST methods in language modeling task.",
+    "added_date": "2026-01-05T18:46:11.230527"
+  }
+}
