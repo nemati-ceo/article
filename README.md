@@ -1,5 +1,29 @@
+# Summary - resarchflow Library
+
+```
+resarchflow/                      # 2,523 total lines
+├── pyproject.toml              # pip installable
+├── __init__.py                 # Main exports
+└── core/
+    ├── pipeline.py             # Main PaperPipeline class (255 lines)
+    ├── schemas/
+    │   └── paper.py            # Pydantic models - RAG-ready output (193 lines)
+    ├── providers/
+    │   ├── __init__.py         # UnifiedSearch + registry (202 lines)
+    │   ├── base.py             # Abstract base (102 lines)
+    │   ├── arxiv_provider.py   # arXiv (130 lines)
+    │   ├── pubmed_provider.py  # PubMed (217 lines)
+    │   ├── semantic_scholar_provider.py  # S2 (237 lines)
+    │   └── openalex_provider.py # OpenAlex (248 lines)
+    └── processors/
+        ├── marker_processor.py # PDF extraction (217 lines)
+        ├── chunker.py          # RAG chunking (210 lines)
+        └── embeddings.py       # Vector store (307 lines)
+```
+
+```md
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           PAPERFLOW ARCHITECTURE                            │
+│                           resarchflow ARCHITECTURE                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -55,7 +79,7 @@ DATA FLOW:
 
 PROJECT STRUCTURE:
 ══════════════════
-paperflow/
+resarchflow/
 ├── core/                    # Standalone pip package
 │   ├── providers/           # arxiv, pubmed, semantic_scholar, openalex
 │   ├── processors/          # marker, sections, chunker, embeddings
