@@ -3,6 +3,7 @@ Main pipeline orchestrator for paperflow.
 """
 import json
 import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -40,13 +41,18 @@ class PaperPipeline:
     
     def __init__(
         self,
-        pdf_dir: str = "papers_pdf",
-        markdown_dir: str = "papers_markdown",
+        pdf_dir: str = None,
+        markdown_dir: str = None,
         db_path: Optional[str] = None,
         vector_store: str = "chroma",
         embedding_model: str = "all-MiniLM-L6-v2",
         **kwargs
     ):
+        if pdf_dir is None:
+            pdf_dir = os.path.join(tempfile.gettempdir(), "paperflow", "pdfs")
+        if markdown_dir is None:
+            markdown_dir = os.path.join(tempfile.gettempdir(), "paperflow", "markdown")
+        
         self.pdf_dir = Path(pdf_dir)
         self.markdown_dir = Path(markdown_dir)
         self.pdf_dir.mkdir(parents=True, exist_ok=True)

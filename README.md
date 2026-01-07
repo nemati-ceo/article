@@ -22,8 +22,6 @@ pip install paperflow
 # With PDF extraction (Marker AI)
 pip install paperflow[extraction]
 
-# With RAG support (embeddings + vector store)
-pip install paperflow[rag]
 
 # All features
 pip install paperflow[all]
