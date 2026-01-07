@@ -149,3 +149,5 @@ Thumbs.db
 *.tmp
 *.temp
 .
+
+tuotrial/test_pdfs/*

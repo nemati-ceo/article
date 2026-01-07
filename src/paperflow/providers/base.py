@@ -4,7 +4,7 @@ Base provider interface for all paper sources.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from paperflow.schemas import PaperMetadata, SearchQuery, SourceType
+from paperflow.schemas import SearchQuery, SourceType
 
 
 class BaseProvider(ABC):
@@ -28,7 +28,7 @@ class BaseProvider(ABC):
         query: str,
         max_results: int = 10,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
+    ) -> List[Dict[str, Any]]:
         """
         Search for papers.
 
@@ -38,12 +38,12 @@ class BaseProvider(ABC):
             **kwargs: Provider-specific parameters
 
         Returns:
-            List of PaperMetadata objects
+            List of paper dictionaries with provider information
         """
         pass
 
     @abstractmethod
-    def get_paper(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a single paper by ID.
 
@@ -51,17 +51,17 @@ class BaseProvider(ABC):
             paper_id: Provider-specific paper ID (DOI, arXiv ID, PMID, etc.)
 
         Returns:
-            PaperMetadata if found, None otherwise
+            Paper dictionary if found, None otherwise
         """
         pass
 
     @abstractmethod
-    def download_pdf(self, paper: PaperMetadata, output_path: str) -> bool:
+    def download_pdf(self, paper: Dict[str, Any], output_path: str) -> bool:
         """
         Download PDF for a paper.
 
         Args:
-            paper: Paper metadata
+            paper: Paper dictionary
             output_path: Path to save PDF
 
         Returns:
@@ -69,7 +69,7 @@ class BaseProvider(ABC):
         """
         pass
 
-    def search_from_query(self, query: SearchQuery) -> List[PaperMetadata]:
+    def search_from_query(self, query: SearchQuery) -> List[Dict[str, Any]]:
         """Search using SearchQuery object."""
         return self.search(
             query=query.query,

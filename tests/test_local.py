@@ -68,6 +68,22 @@ def test_imports():
     return True
 
 
+def test_version():
+    """Test that version is accessible."""
+    print("\n" + "=" * 60)
+    print("TEST 1.5: Version")
+    print("=" * 60)
+    
+    try:
+        import paperflow
+        version = paperflow.__version__
+        print(f"✅ Version: {version}")
+        return True
+    except Exception as e:
+        print(f"❌ Version error: {e}")
+        return False
+
+
 def test_schema_creation():
     """Test that schemas can be created."""
     print("\n" + "=" * 60)
@@ -170,15 +186,33 @@ def test_pipeline_init():
     print("=" * 60)
     
     from paperflow.pipeline import PaperPipeline
+    import tempfile
+    import os
     
     try:
-        pipeline = PaperPipeline(
+        # Test with custom directories
+        pipeline_custom = PaperPipeline(
             pdf_dir="test_pdfs",
             markdown_dir="test_markdown",
         )
-        print("✅ Pipeline initialized")
-        print(f"   PDF dir: {pipeline.pdf_dir}")
-        print(f"   Markdown dir: {pipeline.markdown_dir}")
+        print("✅ Pipeline initialized with custom dirs")
+        print(f"   PDF dir: {pipeline_custom.pdf_dir}")
+        print(f"   Markdown dir: {pipeline_custom.markdown_dir}")
+        
+        # Test with default (temp) directories
+        pipeline_temp = PaperPipeline()
+        print("✅ Pipeline initialized with temp dirs")
+        print(f"   PDF dir: {pipeline_temp.pdf_dir}")
+        print(f"   Markdown dir: {pipeline_temp.markdown_dir}")
+        
+        # Verify temp dirs are in system temp
+        temp_base = tempfile.gettempdir()
+        assert str(pipeline_temp.pdf_dir).startswith(temp_base), f"PDF dir not in temp: {pipeline_temp.pdf_dir}"
+        assert str(pipeline_temp.markdown_dir).startswith(temp_base), f"Markdown dir not in temp: {pipeline_temp.markdown_dir}"
+        assert "paperflow" in str(pipeline_temp.pdf_dir), f"PDF dir missing paperflow: {pipeline_temp.pdf_dir}"
+        assert "paperflow" in str(pipeline_temp.markdown_dir), f"Markdown dir missing paperflow: {pipeline_temp.markdown_dir}"
+        
+        print("✅ Temp directory paths validated")
         return True
     except Exception as e:
         print(f"❌ Pipeline error: {e}")
@@ -272,10 +306,10 @@ def test_arxiv_search():
         print(f"   Found: {results.total_found} papers")
         
         for i, paper in enumerate(results.papers[:3], 1):
-            title = paper.title[:60] + "..." if len(paper.title) > 60 else paper.title
+            title = paper["title"][:60] + "..." if len(paper["title"]) > 60 else paper["title"]
             print(f"\n   {i}. {title}")
-            print(f"      Year: {paper.year}")
-            print(f"      arXiv: {paper.arxiv_id}")
+            print(f"      Year: {paper.get('year', 'N/A')}")
+            print(f"      arXiv: {paper.get('arxiv_id', 'N/A')}")
         
         return True
     except Exception as e:
@@ -327,6 +361,7 @@ def run_all_tests():
         print("   python tests/test_local.py")
         return 1
     
+    results.append(("Version", test_version()))
     results.append(("Schema Creation", test_schema_creation()))
     results.append(("Provider Init", test_providers_init()))
     results.append(("Pipeline Init", test_pipeline_init()))

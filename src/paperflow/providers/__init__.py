@@ -2,9 +2,9 @@
 Paper providers package.
 Unified interface to multiple academic paper sources.
 """
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
-from paperflow.schemas import PaperMetadata, SearchQuery, SearchResult, SourceType
+from paperflow.schemas import SearchQuery, SearchResult, SourceType
 
 from .base import BaseProvider
 from .arxiv_provider import ArxivProvider
@@ -64,7 +64,7 @@ class UnifiedSearch:
         if sources is None:
             sources = list(PROVIDER_REGISTRY.keys())
 
-        all_papers: List[PaperMetadata] = []
+        all_papers: List[Dict[str, Any]] = []
         searched_sources: List[SourceType] = []
 
         for source in sources:
@@ -84,10 +84,11 @@ class UnifiedSearch:
         seen_dois = set()
         unique_papers = []
         for paper in all_papers:
-            if paper.doi:
-                if paper.doi in seen_dois:
+            doi = paper.get("doi")
+            if doi:
+                if doi in seen_dois:
                     continue
-                seen_dois.add(paper.doi)
+                seen_dois.add(doi)
             unique_papers.append(paper)
 
         elapsed_ms = int((time.time() - start_time) * 1000)
@@ -109,7 +110,7 @@ class UnifiedSearch:
         self,
         paper_id: str,
         source: Optional[SourceType] = None
-    ) -> Optional[PaperMetadata]:
+    ) -> Optional[Dict[str, Any]]:
         """Get a paper by ID."""
         if source is None:
             source = self._detect_source(paper_id)

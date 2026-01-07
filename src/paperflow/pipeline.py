@@ -3,6 +3,7 @@ Main pipeline orchestrator for paperflow.
 """
 import json
 import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -22,6 +23,7 @@ from paperflow.providers import UnifiedSearch, get_provider
 from paperflow.processors import (
     EmbeddingProcessor,
     MarkerProcessor,
+    PDFExtractor,
     TextChunker,
     VectorStoreAdapter,
 )
@@ -31,8 +33,17 @@ class PaperPipeline:
     """
     Main pipeline for paper search, download, extraction, and RAG.
     
+    Args:
+        pdf_dir: Directory to store downloaded PDFs
+        markdown_dir: Directory to store extracted markdown
+        db_path: Path to vector database
+        vector_store: Vector store backend ("chroma", "faiss", etc.)
+        embedding_model: Sentence transformer model name
+        gpu: Enable GPU acceleration for extraction and embeddings
+        extraction_backend: PDF extraction backend ("auto", "marker", "docling", "markitdown")
+    
     Example:
-        pipeline = PaperPipeline()
+        pipeline = PaperPipeline(extraction_backend="marker", gpu=True)
         results = pipeline.search("transformer attention", sources=["arxiv"])
         paper = pipeline.process(results.papers[0])
         answer = pipeline.query("What is attention?")
@@ -40,20 +51,27 @@ class PaperPipeline:
     
     def __init__(
         self,
-        pdf_dir: str = "papers_pdf",
-        markdown_dir: str = "papers_markdown",
+        pdf_dir: str = None,
+        markdown_dir: str = None,
         db_path: Optional[str] = None,
         vector_store: str = "chroma",
         embedding_model: str = "all-MiniLM-L6-v2",
+        gpu: bool = False,
+        extraction_backend: str = "auto",
         **kwargs
     ):
+        if pdf_dir is None:
+            pdf_dir = os.path.join(tempfile.gettempdir(), "paperflow", "pdfs")
+        if markdown_dir is None:
+            markdown_dir = os.path.join(tempfile.gettempdir(), "paperflow", "markdown")
+        
         self.pdf_dir = Path(pdf_dir)
         self.markdown_dir = Path(markdown_dir)
         self.pdf_dir.mkdir(parents=True, exist_ok=True)
         self.markdown_dir.mkdir(parents=True, exist_ok=True)
         
         self._search = UnifiedSearch(**kwargs)
-        self._extractor = MarkerProcessor()
+        self._extractor = PDFExtractor(backend=extraction_backend, gpu=gpu)
         self._chunker = TextChunker()
         
         self._embedder: Optional[EmbeddingProcessor] = None
@@ -86,12 +104,25 @@ class PaperPipeline:
             **kwargs
         )
     
-    def download(self, paper: Paper | PaperMetadata) -> Paper:
-        """Download PDF for a paper."""
-        if isinstance(paper, PaperMetadata):
+    def download(self, paper: Paper | Dict[str, Any], pdf_dir: Optional[str] = None) -> Paper:
+        """Download PDF for a paper.
+        
+        Args:
+            paper: The paper to download (Paper object or paper dict)
+            pdf_dir: Optional custom directory to save the PDF. If None, uses the pipeline's default pdf_dir.
+        """
+        if isinstance(paper, dict):
+            # Convert dict to Paper object
+            metadata = PaperMetadata(**paper)
+            paper = Paper(metadata=metadata)
+        elif isinstance(paper, PaperMetadata):
             paper = Paper(metadata=paper)
         
         paper.status = ProcessingStatus.DOWNLOADING
+        
+        # Use custom pdf_dir if provided, otherwise use self.pdf_dir
+        save_dir = Path(pdf_dir) if pdf_dir else self.pdf_dir
+        save_dir.mkdir(parents=True, exist_ok=True)
         
         identifier = (
             paper.metadata.arxiv_id or
@@ -100,15 +131,16 @@ class PaperPipeline:
             str(paper.uuid)[:8]
         )
         safe_id = identifier.replace("/", "_").replace(":", "_")
-        pdf_path = self.pdf_dir / f"{safe_id}.pdf"
+        pdf_path = save_dir / f"{safe_id}.pdf"
         
         provider = get_provider(paper.metadata.source)
-        success = provider.download_pdf(paper.metadata, str(pdf_path))
+        success = provider.download_pdf(paper.metadata.model_dump(), str(pdf_path))
         
         if success:
             paper.pdf_path = str(pdf_path)
             paper.has_pdf = True
             paper.status = ProcessingStatus.PENDING
+            print(f"PDF saved to: {pdf_path}")
         else:
             paper.status = ProcessingStatus.FAILED
             paper.error_message = "PDF download failed"
@@ -136,7 +168,9 @@ class PaperPipeline:
             return paper
         
         sections_dict = self._extractor.extract_sections(paper.pdf_path)
-        paper.sections = list(sections_dict.values())
+        paper.sections = [
+            Section(**section_data) for section_data in sections_dict.values()
+        ]
         paper.has_sections = bool(paper.sections)
         paper.status = ProcessingStatus.PENDING
         
@@ -201,20 +235,34 @@ class PaperPipeline:
     
     def process(
         self,
-        paper: Paper | PaperMetadata,
+        paper: Paper | Dict[str, Any],
         download: bool = True,
         extract: bool = True,
         chunk: bool = True,
-        embed: bool = False
+        embed: bool = False,
+        pdf_dir: Optional[str] = None
     ) -> Paper:
-        """Full processing pipeline."""
+        """Full processing pipeline.
+        
+        Args:
+            paper: The paper to process
+            download: Whether to download the PDF
+            extract: Whether to extract text from PDF
+            chunk: Whether to chunk the text
+            embed: Whether to create embeddings
+            pdf_dir: Optional custom directory to save the PDF. If None, uses the pipeline's default pdf_dir.
+        """
         if isinstance(paper, PaperMetadata):
             paper = Paper(metadata=paper)
+        elif isinstance(paper, dict):
+            # Convert dict to Paper object
+            metadata = PaperMetadata(**paper)
+            paper = Paper(metadata=metadata)
         
         paper.citation = self._generate_citation(paper.metadata)
         
         if download:
-            paper = self.download(paper)
+            paper = self.download(paper, pdf_dir=pdf_dir)
             if paper.status == ProcessingStatus.FAILED:
                 return paper
         
@@ -232,7 +280,7 @@ class PaperPipeline:
     
     def process_batch(
         self,
-        papers: List[Paper | PaperMetadata],
+        papers: List[Paper | Dict[str, Any]],
         **kwargs
     ) -> List[Paper]:
         """Process multiple papers."""
