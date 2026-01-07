@@ -306,10 +306,10 @@ def test_arxiv_search():
         print(f"   Found: {results.total_found} papers")
         
         for i, paper in enumerate(results.papers[:3], 1):
-            title = paper.title[:60] + "..." if len(paper.title) > 60 else paper.title
+            title = paper["title"][:60] + "..." if len(paper["title"]) > 60 else paper["title"]
             print(f"\n   {i}. {title}")
-            print(f"      Year: {paper.year}")
-            print(f"      arXiv: {paper.arxiv_id}")
+            print(f"      Year: {paper.get('year', 'N/A')}")
+            print(f"      arXiv: {paper.get('arxiv_id', 'N/A')}")
         
         return True
     except Exception as e:

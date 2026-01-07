@@ -5,12 +5,12 @@ import io
 import os
 import re
 import tarfile
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 from Bio import Entrez
 
-from paperflow.schemas import Author, PaperMetadata, SourceType
+from paperflow.schemas import SourceType
 from .base import BaseProvider
 
 
@@ -42,7 +42,7 @@ class PubMedProvider(BaseProvider):
         query: str,
         max_results: int = 10,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
+    ) -> List[Dict[str, Any]]:
         """Search PubMed for papers."""
         search_query = self._build_query(query, **kwargs)
 
@@ -61,8 +61,9 @@ class PubMedProvider(BaseProvider):
 
             papers = []
             for summary in summaries:
-                paper = self._convert_to_metadata(summary)
-                papers.append(paper)
+                paper = self._convert_to_dict(summary)
+                if self._passes_filters_dict(paper, **kwargs):
+                    papers.append(paper)
 
             return papers
 
@@ -70,7 +71,7 @@ class PubMedProvider(BaseProvider):
             print(f"PubMed search error: {e}")
             return []
 
-    def get_paper(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """Get paper by PMID or PMC ID."""
         if paper_id.upper().startswith("PMC"):
             db = "pmc"
@@ -85,16 +86,16 @@ class PubMedProvider(BaseProvider):
             handle.close()
 
             if summaries:
-                return self._convert_to_metadata(summaries[0], db=db)
+                return self._convert_to_dict(summaries[0], db=db)
             return None
 
         except Exception as e:
             print(f"PubMed get_paper error: {e}")
             return None
 
-    def download_pdf(self, paper: PaperMetadata, output_path: str) -> bool:
+    def download_pdf(self, paper: Dict[str, Any], output_path: str) -> bool:
         """Download PDF from PubMed Central."""
-        pmc_id = paper.pmc_id
+        pmc_id = paper.get("pmc_id")
         if not pmc_id:
             return False
 
@@ -169,8 +170,8 @@ class PubMedProvider(BaseProvider):
 
         return " AND ".join(parts)
 
-    def _convert_to_metadata(self, summary: dict, db: str = "pmc") -> PaperMetadata:
-        """Convert Entrez summary to PaperMetadata."""
+    def _convert_to_dict(self, summary: dict, db: str = "pmc") -> Dict[str, Any]:
+        """Convert Entrez summary to paper dictionary."""
         pmc_id = f"PMC{summary.get('Id', '')}" if db == "pmc" else None
         pmid = summary.get("Id") if db == "pubmed" else None
 
@@ -182,20 +183,35 @@ class PubMedProvider(BaseProvider):
                 year = int(match.group(1))
 
         author_list = summary.get("AuthorList", [])
-        authors = [Author(name=a) for a in author_list] if author_list else []
+        authors = [{"name": a} for a in author_list] if author_list else []
 
-        return PaperMetadata(
-            title=summary.get("Title", ""),
-            authors=authors,
-            year=year,
-            doi=summary.get("DOI"),
-            pmid=pmid,
-            pmc_id=pmc_id,
-            source=SourceType.PUBMED,
-            url=f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc_id}/" if pmc_id else "",
-            abstract=self.get_abstract(pmc_id) if pmc_id else "",
-            journal=summary.get("Source", ""),
-            volume=summary.get("Volume"),
-            issue=summary.get("Issue"),
-            pages=summary.get("Pages"),
-        )
+        return {
+            "title": summary.get("Title", ""),
+            "authors": authors,
+            "year": year,
+            "doi": summary.get("DOI"),
+            "pmid": pmid,
+            "pmc_id": pmc_id,
+            "source": SourceType.PUBMED.value,
+            "provider": self.name,
+            "url": f"https://www.ncbi.nlm.nih.gov/pmc/articles/{pmc_id}/" if pmc_id else "",
+            "abstract": self.get_abstract(pmc_id) if pmc_id else "",
+            "journal": summary.get("Source", ""),
+            "volume": summary.get("Volume"),
+            "issue": summary.get("Issue"),
+            "pages": summary.get("Pages"),
+        }
+
+    def _passes_filters_dict(self, paper: Dict[str, Any], **kwargs: Any) -> bool:
+        """Check if paper passes filters."""
+        if kwargs.get("year_from") and paper.get("year"):
+            if paper["year"] < kwargs["year_from"]:
+                return False
+        if kwargs.get("year_to") and paper.get("year"):
+            if paper["year"] > kwargs["year_to"]:
+                return False
+        if kwargs.get("author"):
+            author_names = [a.get("name", "").lower() for a in paper.get("authors", [])]
+            if not any(kwargs["author"].lower() in name for name in author_names):
+                return False
+        return True

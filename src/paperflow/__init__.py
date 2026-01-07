@@ -15,7 +15,7 @@ def _show_banner() -> None:
 │                                                               │
 │  search → download → extract Markditdown                      │
 │                                                               │
-│  version: {__version__:<28}                                   │
+│{f"version: {__version__}":^61}│
 ╰───────────────────────────────────────────────────────────────╯
 """.rstrip()
 

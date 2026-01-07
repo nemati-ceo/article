@@ -179,7 +179,45 @@ class SearchQuery(BaseModel):
 class SearchResult(BaseModel):
     """Search result container."""
     query: SearchQuery
-    papers: List[PaperMetadata]
+    papers: List[Dict[str, Any]]
     total_found: int
     sources_searched: List[SourceType]
     search_time_ms: int = 0
+
+    def __str__(self) -> str:
+        """Return a tabular representation of the search results."""
+        from tabulate import tabulate
+
+        if not self.papers:
+            return f"Found {self.total_found} papers in {self.search_time_ms}ms\nSources: {[s.value for s in self.sources_searched]}\n\nNo papers found."
+
+        # Prepare table data
+        table_data = []
+        for i, paper in enumerate(self.papers, 1):
+            authors = []
+            for author in paper.get("authors", []):
+                if isinstance(author, dict):
+                    authors.append(author.get("name", ""))
+                else:
+                    authors.append(str(author))
+            authors_str = ", ".join(authors[:3])  # Limit to 3 authors
+            if len(authors) > 3:
+                authors_str += " et al."
+            title = paper.get("title", "")[:60] + "..." if len(paper.get("title", "")) > 60 else paper.get("title", "")
+            year = paper.get("year") or "N/A"
+            source = paper.get("source", "unknown")
+            # Add link/ID column
+            link_id = paper.get("arxiv_id") or paper.get("doi") or paper.get("url", "")
+            if link_id and len(link_id) > 50:
+                link_id = link_id[:47] + "..."
+            table_data.append([i, title, authors_str, year, source, link_id or "N/A"])
+
+        table = tabulate(
+            table_data,
+            headers=["#", "Title", "Authors", "Year", "Source", "Link/ID"],
+            tablefmt="grid",
+            maxcolwidths=[3, 40, 30, 4, 8, 15]
+        )
+
+        summary = f"Found {self.total_found} papers in {self.search_time_ms}ms\nSources: {[s.value for s in self.sources_searched]}"
+        return f"{summary}\n\n{table}"

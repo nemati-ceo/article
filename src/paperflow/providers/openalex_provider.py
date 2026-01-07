@@ -2,11 +2,11 @@
 OpenAlex provider implementation.
 """
 import os
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
-from paperflow.schemas import Author, PaperMetadata, SourceType
+from paperflow.schemas import SourceType
 from .base import BaseProvider
 
 
@@ -42,7 +42,7 @@ class OpenAlexProvider(BaseProvider):
         query: str,
         max_results: int = 10,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
+    ) -> List[Dict[str, Any]]:
         """Search OpenAlex for papers."""
         if self._use_library:
             return self._search_with_library(query, max_results, **kwargs)
@@ -53,7 +53,7 @@ class OpenAlexProvider(BaseProvider):
         query: str,
         max_results: int,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
+    ) -> List[Dict[str, Any]]:
         """Search using pyalex library."""
         try:
             from pyalex import Works
@@ -83,7 +83,7 @@ class OpenAlexProvider(BaseProvider):
         query: str,
         max_results: int,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
+    ) -> List[Dict[str, Any]]:
         """Search using direct API calls."""
         params = {"search": query, "per_page": max_results}
 
@@ -116,7 +116,7 @@ class OpenAlexProvider(BaseProvider):
             print(f"OpenAlex API error: {e}")
             return []
 
-    def get_paper(self, paper_id: str) -> Optional[PaperMetadata]:
+    def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """Get paper by OpenAlex ID, DOI, or other identifier."""
         if paper_id.startswith("10."):
             paper_id = f"https://doi.org/{paper_id}"
@@ -137,14 +137,15 @@ class OpenAlexProvider(BaseProvider):
             print(f"OpenAlex get_paper error: {e}")
             return None
 
-    def download_pdf(self, paper: PaperMetadata, output_path: str) -> bool:
+    def download_pdf(self, paper: Dict[str, Any], output_path: str) -> bool:
         """Download PDF if open access URL available."""
-        if not paper.pdf_url:
+        pdf_url = paper.get("pdf_url")
+        if not pdf_url:
             return False
 
         try:
             with httpx.Client(timeout=120.0, follow_redirects=True) as client:
-                response = client.get(paper.pdf_url, headers={"User-Agent": "Mozilla/5.0"})
+                response = client.get(pdf_url, headers={"User-Agent": "Mozilla/5.0"})
                 response.raise_for_status()
 
                 with open(output_path, "wb") as f:
@@ -155,8 +156,8 @@ class OpenAlexProvider(BaseProvider):
             print(f"OpenAlex download error: {e}")
             return False
 
-    def _convert_work(self, work: dict) -> PaperMetadata:
-        """Convert OpenAlex work to PaperMetadata."""
+    def _convert_work(self, work: dict) -> Dict[str, Any]:
+        """Convert OpenAlex work to paper dictionary."""
         authors = []
         for authorship in work.get("authorships", []):
             author_data = authorship.get("author", {})
@@ -166,7 +167,7 @@ class OpenAlexProvider(BaseProvider):
                 institutions = authorship.get("institutions", [])
                 if institutions:
                     affiliation = institutions[0].get("display_name")
-                authors.append(Author(name=name, affiliation=affiliation))
+                authors.append({"name": name, "affiliation": affiliation})
 
         ids = work.get("ids", {})
         doi = ids.get("doi", "").replace("https://doi.org/", "") if ids.get("doi") else None
@@ -183,19 +184,20 @@ class OpenAlexProvider(BaseProvider):
         if work.get("abstract_inverted_index"):
             abstract = self._reconstruct_abstract(work["abstract_inverted_index"])
 
-        return PaperMetadata(
-            title=work.get("display_name", work.get("title", "")),
-            authors=authors,
-            year=work.get("publication_year"),
-            doi=doi,
-            source=SourceType.OPENALEX,
-            url=work.get("id", ""),
-            pdf_url=pdf_url,
-            abstract=abstract,
-            citation_count=work.get("cited_by_count"),
-            journal=source.get("display_name"),
-            published_date=work.get("publication_date"),
-        )
+        return {
+            "title": work.get("display_name", work.get("title", "")),
+            "authors": authors,
+            "year": work.get("publication_year"),
+            "doi": doi,
+            "source": SourceType.OPENALEX.value,
+            "provider": self.name,
+            "url": work.get("id", ""),
+            "pdf_url": pdf_url,
+            "abstract": abstract,
+            "citation_count": work.get("cited_by_count"),
+            "journal": source.get("display_name"),
+            "published_date": work.get("publication_date"),
+        }
 
     def _reconstruct_abstract(self, inverted_index: dict) -> str:
         """Reconstruct abstract from OpenAlex inverted index format."""

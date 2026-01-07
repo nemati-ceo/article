@@ -1,125 +1,147 @@
 """
-arXiv provider implementation.
+Semantic Scholar provider implementation.
 """
-from typing import Any, List, Optional
+import os
+from typing import Any, Dict, List, Optional
 
-import arxiv
+import httpx
 
-from paperflow.schemas import Author, PaperMetadata, SourceType
+from paperflow.schemas import SourceType
 from .base import BaseProvider
 
 
 class SemanticScholarProvider(BaseProvider):
-    """Provider for arXiv papers."""
+    """Provider for Semantic Scholar papers."""
 
-    def __init__(self):
-        self.client = arxiv.Client()
+    BASE_URL = "https://api.semanticscholar.org/graph/v1"
+
+    def __init__(self, api_key: Optional[str] = None):
+        self.api_key = api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY", "")
 
     @property
     def source_type(self) -> SourceType:
-        return SourceType.ARXIV
+        return SourceType.SEMANTIC_SCHOLAR
 
     @property
     def name(self) -> str:
-        return "arXiv"
+        return "Semantic Scholar"
 
     def search(
         self,
         query: str,
         max_results: int = 10,
         **kwargs: Any
-    ) -> List[PaperMetadata]:
-        """Search arXiv for papers."""
-        search_query = self._build_query(query, **kwargs)
-        sort_by = self._get_sort_criterion(kwargs.get("sort_by", "relevance"))
+    ) -> List[Dict[str, Any]]:
+        """Search Semantic Scholar for papers."""
+        params = {
+            "query": query,
+            "limit": max_results,
+            "fields": "paperId,title,authors,year,abstract,venue,publicationVenue,externalIds,url,openAccessPdf,isOpenAccess"
+        }
 
-        search = arxiv.Search(
-            query=search_query,
-            max_results=max_results,
-            sort_by=sort_by,
-            sort_order=arxiv.SortOrder.Descending,
-        )
+        headers = {}
+        if self.api_key:
+            headers["x-api-key"] = self.api_key
 
-        papers = []
-        for result in self.client.results(search):
-            paper = self._convert_to_metadata(result)
-            if self._passes_filters(paper, **kwargs):
-                papers.append(paper)
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(f"{self.BASE_URL}/paper/search", params=params, headers=headers)
+                response.raise_for_status()
+                data = response.json()
 
-        return papers[:max_results]
+            papers = []
+            for paper_data in data.get("data", []):
+                paper = self._convert_paper(paper_data)
+                if self._passes_filters_dict(paper, **kwargs):
+                    papers.append(paper)
 
-    def get_paper(self, paper_id: str) -> Optional[PaperMetadata]:
-        """Get paper by arXiv ID."""
-        clean_id = paper_id.replace("arXiv:", "").strip()
-        search = arxiv.Search(id_list=[clean_id])
-        results = list(self.client.results(search))
+            return papers
 
-        if results:
-            return self._convert_to_metadata(results[0])
-        return None
+        except Exception as e:
+            print(f"Semantic Scholar search error: {e}")
+            return []
 
-    def download_pdf(self, paper: PaperMetadata, output_path: str) -> bool:
-        """Download PDF from arXiv."""
-        if not paper.arxiv_id:
+    def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
+        """Get paper by Semantic Scholar ID, DOI, or arXiv ID."""
+        fields = "paperId,title,authors,year,abstract,venue,publicationVenue,externalIds,url,openAccessPdf,isOpenAccess,citationCount"
+
+        params = {"fields": fields}
+        headers = {}
+        if self.api_key:
+            headers["x-api-key"] = self.api_key
+
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(f"{self.BASE_URL}/paper/{paper_id}", params=params, headers=headers)
+                response.raise_for_status()
+                data = response.json()
+
+            return self._convert_paper(data)
+
+        except Exception as e:
+            print(f"Semantic Scholar get_paper error: {e}")
+            return None
+
+    def download_pdf(self, paper: Dict[str, Any], output_path: str) -> bool:
+        """Download PDF if open access URL available."""
+        pdf_url = paper.get("pdf_url")
+        if not pdf_url:
             return False
 
         try:
-            search = arxiv.Search(id_list=[paper.arxiv_id])
-            result = next(self.client.results(search))
-            result.download_pdf(filename=output_path)
-            return True
+            with httpx.Client(timeout=120.0, follow_redirects=True) as client:
+                response = client.get(pdf_url, headers={"User-Agent": "Mozilla/5.0"})
+                response.raise_for_status()
+
+                with open(output_path, "wb") as f:
+                    f.write(response.content)
+                return True
+
         except Exception as e:
-            print(f"arXiv download error: {e}")
+            print(f"Semantic Scholar download error: {e}")
             return False
 
-    def _build_query(self, query: str, **kwargs: Any) -> str:
-        """Build arXiv query string."""
-        parts = [query]
+    def _convert_paper(self, paper_data: dict) -> Dict[str, Any]:
+        """Convert Semantic Scholar paper to dictionary."""
+        authors = []
+        for author_data in paper_data.get("authors", []):
+            name = author_data.get("name", "")
+            if name:
+                authors.append({"name": name})
 
-        if kwargs.get("categories"):
-            cats = kwargs["categories"]
-            cat_query = " OR ".join([f"cat:{c}" for c in cats])
-            parts.append(f"({cat_query})")
+        external_ids = paper_data.get("externalIds", {})
+        doi = external_ids.get("DOI")
+        arxiv_id = external_ids.get("ArXiv")
 
-        if kwargs.get("author"):
-            parts.append(f'au:{kwargs["author"]}')
+        pdf_url = None
+        oa = paper_data.get("openAccessPdf", {})
+        if oa and oa.get("url"):
+            pdf_url = oa["url"]
 
-        return " AND ".join(parts)
+        venue = paper_data.get("venue", "") or paper_data.get("publicationVenue", {}).get("name", "")
 
-    def _get_sort_criterion(self, sort_by: str) -> arxiv.SortCriterion:
-        """Convert sort string to arxiv criterion."""
-        mapping = {
-            "relevance": arxiv.SortCriterion.Relevance,
-            "date": arxiv.SortCriterion.LastUpdatedDate,
-            "submitted": arxiv.SortCriterion.SubmittedDate,
+        return {
+            "title": paper_data.get("title", ""),
+            "authors": authors,
+            "year": paper_data.get("year"),
+            "doi": doi,
+            "arxiv_id": arxiv_id,
+            "source": SourceType.SEMANTIC_SCHOLAR.value,
+            "provider": self.name,
+            "url": paper_data.get("url", ""),
+            "pdf_url": pdf_url,
+            "abstract": paper_data.get("abstract"),
+            "citation_count": paper_data.get("citationCount"),
+            "journal": venue,
+            "published_date": None,  # Not provided in search
         }
-        return mapping.get(sort_by, arxiv.SortCriterion.Relevance)
 
-    def _convert_to_metadata(self, result: arxiv.Result) -> PaperMetadata:
-        """Convert arxiv.Result to PaperMetadata."""
-        authors = [Author(name=a.name) for a in result.authors]
-
-        return PaperMetadata(
-            title=result.title,
-            authors=authors,
-            year=result.published.year if result.published else None,
-            doi=result.doi,
-            arxiv_id=result.get_short_id(),
-            source=SourceType.ARXIV,
-            url=result.entry_id,
-            pdf_url=result.pdf_url,
-            abstract=result.summary,
-            categories=list(result.categories),
-            journal=result.journal_ref,
-            published_date=result.published,
-        )
-
-    def _passes_filters(self, paper: PaperMetadata, **kwargs: Any) -> bool:
-        """Check if paper passes year filters."""
-        if kwargs.get("year_from") and paper.year:
-            if paper.year < kwargs["year_from"]:
+    def _passes_filters_dict(self, paper: Dict[str, Any], **kwargs: Any) -> bool:
+        """Check if paper passes filters."""
+        if kwargs.get("year_from") and paper.get("year"):
+            if paper["year"] < kwargs["year_from"]:
                 return False
-        if kwargs.get("year_to") and paper.year:
-            if paper.year > kwargs["year_to"]:
+        if kwargs.get("year_to") and paper.get("year"):
+            if paper["year"] > kwargs["year_to"]:
                 return False
         return True
