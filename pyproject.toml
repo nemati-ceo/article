@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "paperflow"
-version = "0.1.0"
+version = "0.1.1"
 description = "Unified paper ingestion, extraction, and RAG pipeline"
 readme = "README.md"
 license = "MIT"
@@ -72,9 +72,6 @@ Homepage = "https://github.com/osllmai/paperflow"
 Documentation = "https://github.com/osllmai/paperflow#readme"
 Repository = "https://github.com/osllmai/paperflow"
 Issues = "https://github.com/osllmai/paperflow/issues"
-
-[project.scripts]
-paperflow = "paperflow.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
