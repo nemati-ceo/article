@@ -3,11 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "resarchflow"
+name = "paperflow"
 version = "0.1.0"
 description = "Unified paper ingestion, extraction, and RAG pipeline"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.9"
 authors = [
     {name = "Ali Nemati", email = "alinemati@osllm.ai"}
@@ -19,7 +19,6 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -69,17 +68,17 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/osllmai/resarchflow"
-Documentation = "https://github.com/osllmai/resarchflow#readme"
-Repository = "https://github.com/osllmai/resarchflow"
-Issues = "https://github.com/osllmai/resarchflow/issues"
+Homepage = "https://github.com/osllmai/paperflow"
+Documentation = "https://github.com/osllmai/paperflow#readme"
+Repository = "https://github.com/osllmai/paperflow"
+Issues = "https://github.com/osllmai/paperflow/issues"
 
 [project.scripts]
-resarchflow = "resarchflow.cli:main"
+paperflow = "paperflow.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["resarchflow*"]
+where = ["src"]
+include = ["paperflow*"]
 
 [tool.black]
 line-length = 88

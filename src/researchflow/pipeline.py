@@ -1,5 +1,5 @@
 """
-Main pipeline orchestrator for resarchflow.
+Main pipeline orchestrator for paperflow.
 """
 import json
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from resarchflow.core.schemas import (
+from paperflow.schemas import (
     Citation,
     Paper,
     PaperMetadata,
@@ -18,8 +18,8 @@ from resarchflow.core.schemas import (
     SectionType,
     SourceType,
 )
-from resarchflow.core.providers import UnifiedSearch, get_provider
-from resarchflow.core.processors import (
+from paperflow.providers import UnifiedSearch, get_provider
+from paperflow.processors import (
     EmbeddingProcessor,
     MarkerProcessor,
     TextChunker,

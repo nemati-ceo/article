@@ -3,34 +3,24 @@ Embedding processor for vector storage.
 """
 from typing import Any, List, Optional
 
-from resarchflow.core.schemas import Chunk, Paper
+from paperflow.schemas import Chunk, Paper
 
 
 class EmbeddingProcessor:
-    """
-    Generates embeddings for paper chunks.
-    Supports multiple backends.
-    """
-    
+    """Generates embeddings for paper chunks."""
+
     def __init__(
         self,
         model_name: str = "all-MiniLM-L6-v2",
         backend: str = "auto"
     ):
-        """
-        Initialize embedding processor.
-        
-        Args:
-            model_name: Embedding model name
-            backend: 'sentence_transformers', 'openai', or 'auto'
-        """
         self.model_name = model_name
         self.backend = backend
         self._model = None
         self._embed_func = None
         self.available = False
         self._initialize()
-    
+
     def _initialize(self) -> None:
         """Initialize embedding model."""
         if self.backend == "auto":
@@ -41,162 +31,117 @@ class EmbeddingProcessor:
             self._try_sentence_transformers()
         elif self.backend == "openai":
             self._try_openai()
-    
+
     def _try_sentence_transformers(self) -> None:
         """Try to load sentence-transformers."""
         try:
             from sentence_transformers import SentenceTransformer
-            
             self._model = SentenceTransformer(self.model_name)
             self._embed_func = self._embed_st
             self.available = True
             self.backend = "sentence_transformers"
-            
         except ImportError:
             pass
-    
+
     def _try_openai(self) -> None:
         """Try to use OpenAI embeddings."""
         try:
             import os
-            import openai
-            
             if os.getenv("OPENAI_API_KEY"):
                 self._embed_func = self._embed_openai
                 self.available = True
                 self.backend = "openai"
         except ImportError:
             pass
-    
+
     def _embed_st(self, texts: List[str]) -> List[List[float]]:
         """Embed using sentence-transformers."""
         embeddings = self._model.encode(texts)
         return embeddings.tolist()
-    
+
     def _embed_openai(self, texts: List[str]) -> List[List[float]]:
         """Embed using OpenAI API."""
         import openai
-        
         response = openai.embeddings.create(
             model="text-embedding-3-small",
             input=texts
         )
         return [e.embedding for e in response.data]
-    
+
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """
-        Generate embeddings for texts.
-        
-        Args:
-            texts: List of texts to embed
-            
-        Returns:
-            List of embedding vectors
-        """
+        """Generate embeddings for texts."""
         if not self.available:
             raise RuntimeError(
                 "No embedding backend available. "
                 "Install sentence-transformers or set OPENAI_API_KEY"
             )
-        
         return self._embed_func(texts)
-    
+
     def embed_chunks(
         self,
         chunks: List[Chunk],
         batch_size: int = 32
     ) -> List[tuple[Chunk, List[float]]]:
-        """
-        Generate embeddings for chunks.
-        
-        Args:
-            chunks: List of Chunk objects
-            batch_size: Batch size for embedding
-            
-        Returns:
-            List of (chunk, embedding) tuples
-        """
+        """Generate embeddings for chunks."""
         results = []
-        
+
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i + batch_size]
             texts = [c.content for c in batch]
             embeddings = self.embed_texts(texts)
-            
+
             for chunk, emb in zip(batch, embeddings):
                 results.append((chunk, emb))
-        
+
         return results
-    
+
     def embed_paper(self, paper: Paper) -> List[tuple[Chunk, List[float]]]:
-        """
-        Generate embeddings for all chunks in a paper.
-        
-        Args:
-            paper: Paper object with chunks
-            
-        Returns:
-            List of (chunk, embedding) tuples
-        """
+        """Generate embeddings for all chunks in a paper."""
         if not paper.chunks:
             return []
-        
         return self.embed_chunks(paper.chunks)
 
 
 class VectorStoreAdapter:
-    """
-    Adapter for various vector stores.
-    Provides unified interface for ChromaDB, FAISS, etc.
-    """
-    
+    """Adapter for various vector stores."""
+
     def __init__(
         self,
         backend: str = "chroma",
         collection_name: str = "papers",
         **kwargs
     ):
-        """
-        Initialize vector store.
-        
-        Args:
-            backend: 'chroma', 'faiss', or 'memory'
-            collection_name: Name of the collection
-            **kwargs: Backend-specific options
-        """
         self.backend = backend
         self.collection_name = collection_name
         self._store = None
         self._initialize(**kwargs)
-    
+
     def _initialize(self, **kwargs) -> None:
         """Initialize vector store backend."""
         if self.backend == "chroma":
             self._init_chroma(**kwargs)
         elif self.backend == "memory":
             self._init_memory()
-    
+
     def _init_chroma(self, **kwargs) -> None:
         """Initialize ChromaDB."""
         try:
             import chromadb
-            
+
             persist_dir = kwargs.get("persist_directory")
             if persist_dir:
                 client = chromadb.PersistentClient(path=persist_dir)
             else:
                 client = chromadb.Client()
-            
-            self._store = client.get_or_create_collection(
-                name=self.collection_name
-            )
-            
+
+            self._store = client.get_or_create_collection(name=self.collection_name)
+
         except ImportError:
             print("ChromaDB not available. Install with: pip install chromadb")
             self._init_memory()
-    
+
     def _init_memory(self) -> None:
-        """Initialize in-memory store (for testing)."""
+        """Initialize in-memory store."""
         self._store = {
             "ids": [],
             "embeddings": [],
@@ -204,21 +149,14 @@ class VectorStoreAdapter:
             "metadatas": []
         }
         self.backend = "memory"
-    
+
     def add(
         self,
         chunks: List[Chunk],
         embeddings: List[List[float]],
         paper_uuid: str
     ) -> None:
-        """
-        Add chunks with embeddings to store.
-        
-        Args:
-            chunks: List of chunks
-            embeddings: Corresponding embeddings
-            paper_uuid: Paper UUID for metadata
-        """
+        """Add chunks with embeddings to store."""
         if self.backend == "chroma":
             self._store.add(
                 ids=[f"{paper_uuid}_{c.chunk_id}" for c in chunks],
@@ -231,7 +169,6 @@ class VectorStoreAdapter:
                 } for c in chunks]
             )
         else:
-            # Memory store
             for chunk, emb in zip(chunks, embeddings):
                 self._store["ids"].append(f"{paper_uuid}_{chunk.chunk_id}")
                 self._store["embeddings"].append(emb)
@@ -240,24 +177,14 @@ class VectorStoreAdapter:
                     "paper_uuid": paper_uuid,
                     "section": chunk.section_type.value
                 })
-    
+
     def search(
         self,
         query_embedding: List[float],
         n_results: int = 5,
         filter_paper: Optional[str] = None
     ) -> List[dict]:
-        """
-        Search for similar chunks.
-        
-        Args:
-            query_embedding: Query vector
-            n_results: Number of results
-            filter_paper: Optional paper UUID filter
-            
-        Returns:
-            List of results with content and metadata
-        """
+        """Search for similar chunks."""
         if self.backend == "chroma":
             where = {"paper_uuid": filter_paper} if filter_paper else None
             results = self._store.query(
@@ -265,13 +192,9 @@ class VectorStoreAdapter:
                 n_results=n_results,
                 where=where
             )
-            
+
             return [
-                {
-                    "content": doc,
-                    "metadata": meta,
-                    "id": id_
-                }
+                {"content": doc, "metadata": meta, "id": id_}
                 for doc, meta, id_ in zip(
                     results["documents"][0],
                     results["metadatas"][0],
@@ -279,24 +202,23 @@ class VectorStoreAdapter:
                 )
             ]
         else:
-            # Simple cosine similarity for memory store
             import numpy as np
-            
+
             query = np.array(query_embedding)
             scores = []
-            
+
             for i, emb in enumerate(self._store["embeddings"]):
                 emb = np.array(emb)
                 score = np.dot(query, emb) / (np.linalg.norm(query) * np.linalg.norm(emb))
-                
+
                 if filter_paper:
                     if self._store["metadatas"][i].get("paper_uuid") != filter_paper:
                         continue
-                
+
                 scores.append((score, i))
-            
+
             scores.sort(reverse=True)
-            
+
             return [
                 {
                     "content": self._store["documents"][i],

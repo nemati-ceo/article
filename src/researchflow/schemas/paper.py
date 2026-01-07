@@ -1,5 +1,5 @@
 """
-Pydantic schemas for resarchflow.
+Pydantic schemas for paperflow.
 These define the RAG-ready output format.
 """
 from datetime import datetime
@@ -74,7 +74,7 @@ class PaperMetadata(BaseModel):
     pages: Optional[str] = None
     published_date: Optional[datetime] = None
     citation_count: Optional[int] = None
-    
+
     def get_author_names(self) -> List[str]:
         """Get list of author names."""
         names = []
@@ -93,7 +93,7 @@ class Section(BaseModel):
     content: str
     order: int = 0
     word_count: int = 0
-    
+
     def model_post_init(self, __context: Any) -> None:
         """Calculate word count after init."""
         if self.word_count == 0:
@@ -120,27 +120,21 @@ class Citation(BaseModel):
 
 
 class Paper(BaseModel):
-    """
-    Complete paper object - RAG ready.
-    This is the main output schema.
-    """
+    """Complete paper object - RAG ready."""
     uuid: UUID = Field(default_factory=uuid4)
     metadata: PaperMetadata
     sections: List[Section] = Field(default_factory=list)
     chunks: List[Chunk] = Field(default_factory=list)
     citation: Optional[Citation] = None
-    
-    # File paths
+
     pdf_path: Optional[str] = None
     markdown_path: Optional[str] = None
-    
-    # Processing info
+
     status: ProcessingStatus = ProcessingStatus.PENDING
     error_message: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
-    
-    # Flags
+
     has_pdf: bool = False
     has_sections: bool = False
     has_chunks: bool = False
@@ -164,7 +158,7 @@ class Paper(BaseModel):
                 }
             })
         return docs
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON export."""
         return self.model_dump(mode="json")
@@ -173,15 +167,13 @@ class Paper(BaseModel):
 class SearchQuery(BaseModel):
     """Search query parameters."""
     query: str
-    sources: List[SourceType] = Field(
-        default_factory=lambda: [SourceType.ARXIV]
-    )
+    sources: List[SourceType] = Field(default_factory=lambda: [SourceType.ARXIV])
     max_results: int = 10
     year_from: Optional[int] = None
     year_to: Optional[int] = None
     author: Optional[str] = None
     categories: List[str] = Field(default_factory=list)
-    sort_by: str = "relevance"  # relevance, date, citations
+    sort_by: str = "relevance"
 
 
 class SearchResult(BaseModel):
